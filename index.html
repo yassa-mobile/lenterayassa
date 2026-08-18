@@ -657,7 +657,7 @@
             }
         }
 
-        function renderYassaDOM(dataArray, container) {
+       function renderYassaDOM(dataArray, container) {
             container.innerHTML = ''; 
             dataArray.forEach((person, index) => {
                 const div = document.createElement('div');
@@ -676,8 +676,9 @@
                         // Mencari ID file yang panjangnya minimal 25 karakter kombinasi huruf/angka/strip
                         const match = imgUrl.match(/[-\w]{25,}/);
                         if (match) {
-                            imgUrl = `https://drive.google.com/uc?export=view&id=${match[0]}`;
-                            console.log(`URL Foto berhasil dikonversi untuk ${nama}`);
+                            // Menggunakan endpoint lh3.googleusercontent.com yang lebih stabil untuk gambar web
+                            imgUrl = `https://lh3.googleusercontent.com/d/${match[0]}`;
+                            console.log(`URL Foto berhasil dikonversi untuk ${nama}: ${imgUrl}`);
                         }
                     }
                 } catch (error) {
