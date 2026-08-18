@@ -670,6 +670,21 @@
                 const wilayah = person.wilayah || person.Wilayah || ""; // Mengambil data wilayah
                 let imgUrl = person.foto_url || person.foto || person.Foto;
                 
+                // --- PERBAIKAN: Konversi Link Google Drive ---
+                try {
+                    if (imgUrl && imgUrl.includes('drive.google.com')) {
+                        // Mencari ID file yang panjangnya minimal 25 karakter kombinasi huruf/angka/strip
+                        const match = imgUrl.match(/[-\w]{25,}/);
+                        if (match) {
+                            imgUrl = `https://drive.google.com/uc?export=view&id=${match[0]}`;
+                            console.log(`URL Foto berhasil dikonversi untuk ${nama}`);
+                        }
+                    }
+                } catch (error) {
+                    console.error(`Gagal memproses URL foto untuk ${nama}:`, error);
+                }
+                // ---------------------------------------------
+                
                 if (!imgUrl || imgUrl.trim() === '') {
                     const color = ['e2e8f0', 'cbd5e1', 'f1f5f9'][index % 3];
                     imgUrl = `https://placehold.co/400x500/${color}/475569?text=Pejuang`;
@@ -698,7 +713,6 @@
                 container.appendChild(div);
             });
         }
-
         let currentDayPrayerTimes = {};
         let notifiedPrayers = {};
 
