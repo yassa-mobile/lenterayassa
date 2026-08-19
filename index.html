@@ -60,9 +60,16 @@
         }
         .arabic-text {
             direction: rtl;
-            line-height: 3.4;
+            line-height: 2.2;
             font-weight: 400;
             word-spacing: 0.15em;
+        }
+        .arabic-reading {
+            direction: rtl;
+            font-weight: 400;
+            word-spacing: 0.2em;
+            line-height: 3.2;
+            padding-bottom: 0.5rem;
         }
         
         .tab-content {
@@ -503,10 +510,10 @@
                                     ${ayat.nomorAyat}
                                 </div>
                                 <div class="text-right w-full">
-                                    <p class="font-arabic arabic-text text-gray-900 text-3xl font-medium">${ayat.teksArab}</p>
+                                    <p class="font-arabic arabic-reading text-gray-900 text-3xl font-medium">${ayat.teksArab}</p>
                                 </div>
                             </div>
-                            <div class="pt-5 border-t border-gray-100">
+                            <div class="pt-5 mt-2 border-t border-gray-100">
                                 <p class="text-sm text-emerald-700 font-bold mb-3 leading-relaxed">${ayat.teksLatin}</p>
                                 <p class="text-sm text-gray-600 leading-relaxed font-medium">${ayat.teksIndonesia}</p>
                             </div>
@@ -678,8 +685,8 @@
                                 </div>
                                 <h3 class="font-bold text-emerald-900">${item.title}</h3>
                             </div>
-                            <div class="text-right mb-4">
-                                <p class="text-3xl font-arabic arabic-text text-gray-800">${item.arabic}</p>
+                            <div class="text-right mb-6">
+                                <p class="text-3xl font-arabic arabic-reading text-gray-800">${item.arabic}</p>
                             </div>
                             <div class="mb-3">
                                 <p class="text-emerald-700 font-medium italic text-sm leading-relaxed">${item.latin}</p>
