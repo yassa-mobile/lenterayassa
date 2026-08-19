@@ -678,10 +678,17 @@
         // -- ini cuma buat tampilan, gak mempengaruhi jam sholat yang sudah didapat.
         async function reverseGeocodeCity_(lat, lon) {
             try {
-                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=10&accept-language=id`);
+                // zoom=14 -> level kecamatan/kabupaten (lebih detail dari default
+                // zoom=10 yang sebelumnya kepotong dan langsung lompat ke nama
+                // provinsi kayak "Jawa Barat" karena field city/town-nya kosong.
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=14&accept-language=id`);
                 const json = await res.json();
                 const a = json && json.address;
-                return (a && (a.city || a.town || a.county || a.state)) || null;
+                if (!a) return null;
+                // Urutan prioritas dari yang paling spesifik (kecamatan/kelurahan)
+                // ke paling umum (provinsi) -- ambil yang pertama ketemu.
+                return a.suburb || a.city_district || a.town || a.village
+                    || a.city || a.county || a.state_district || a.state || null;
             } catch (error) {
                 return null;
             }
