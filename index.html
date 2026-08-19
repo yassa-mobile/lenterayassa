@@ -767,11 +767,39 @@
 
         window.onload = () => {
             loadSurahList();
-            loadJadwalSholat(); 
+            loadJadwalSholat();
+
+            // 🔗 Dibuka dari YASSA Hub: Hub kirim tab awal lewat ?tab=quran/yasin/yassa/sholat
+            // (lihat MENUS.lentera di Hub), jadi app ini langsung nongol di tab yang
+            // diminta -- bukan selalu balik ke "Al-Quran" default.
+            const urlParams = new URLSearchParams(window.location.search);
+            const initialTab = urlParams.get('tab');
+            if (initialTab && document.getElementById(`tab-${initialTab}`)) {
+                switchTab(initialTab);
+            }
+
             if ("Notification" in window && Notification.permission === "default") {
                 setTimeout(() => Notification.requestPermission(), 5000);
             }
         };
+
+        // 🔗 Dukungan navigasi tanpa-reload dari YASSA Hub: kalau app ini masih
+        // hidup di iframe overlay Hub dan user klik menu Lentera lain (mis. dari
+        // "Al-Quran" ke "Jadwal Sholat"), Hub kirim postMessage "YASSA_HUB_NAVIGATE"
+        // alih-alih reload iframe dari nol. Wajib balas "YASSA_HUB_NAV_ACK" (dengan
+        // nonce yang sama) supaya Hub tahu app ini masih hidup & benar-benar
+        // pindah tab -- kalau gak dibalas dalam waktu singkat, Hub anggap iframe-nya
+        // crash lalu reload penuh dari awal.
+        window.addEventListener('message', (e) => {
+            if (!e.data || e.data.type !== 'YASSA_HUB_NAVIGATE') return;
+            const tabId = e.data.tab;
+            if (tabId && document.getElementById(`tab-${tabId}`)) {
+                switchTab(tabId);
+            }
+            if (e.source) {
+                e.source.postMessage({ type: 'YASSA_HUB_NAV_ACK', nonce: e.data.nonce }, e.origin);
+            }
+        });
     </script>
 </body>
 </html>
