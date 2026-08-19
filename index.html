@@ -333,7 +333,10 @@
 
     <script>
         let allSurahs = [];
-        let currentView = 'home'; 
+        let currentView = 'home';
+        let currentDayPrayerTimes = {};
+        let notifiedPrayers = {};
+        let isEmbedMode = false; // true kalau dibuka lewat YASSA Hub (?embed=1)
 
         // URL GOOGLE APPS SCRIPT
         const GAS_URL = 'https://script.google.com/macros/s/AKfycbwm-gAZOYyXSkd5TaODp28s60vOMTMszjunbMDUlFMwz7s4S_PRLxfARRMqx84_ZjGq/exec'; 
@@ -366,7 +369,7 @@
             document.getElementById('view-surah').classList.add('hidden');
             document.getElementById('view-tahlil').classList.add('hidden');
             document.getElementById('back-btn').classList.add('hidden');
-            document.querySelector('.bottom-nav').style.display = 'flex';
+            if (!isEmbedMode) document.querySelector('.bottom-nav').style.display = 'flex';
             currentView = 'home';
             
             const activeTabId = document.querySelector('.nav-item.active').id.replace('nav-', '');
@@ -631,6 +634,91 @@
 
         let isYassaLoaded = false;
 
+        // ⏰ FIX: fungsi ini dipanggil di beberapa tempat (window.onload, switchTab,
+        // checkPrayerTime) tapi SEBELUMNYA TIDAK PERNAH DIDEFINISIKAN -- akibatnya
+        // setiap dipanggil langsung lempar ReferenceError dan MENGHENTIKAN kode
+        // setelahnya di fungsi pemanggilnya. Ini yang bikin buka tab "Jadwal Sholat"
+        // (baik lewat ?tab=sholat dari Hub maupun klik langsung) selalu gagal &
+        // balik ke tab default "Al-Quran". Sekarang diimplementasikan beneran
+        // pakai API Aladhan (gratis, tanpa API key) untuk wilayah Bekasi.
+        async function loadJadwalSholat() {
+            const dateEl = document.getElementById('sholat-date');
+            const container = document.getElementById('jadwal-container');
+            if (!container) return;
+
+            const now = new Date();
+            const todayKey = now.toISOString().slice(0, 10);
+
+            // Sudah pernah dimuat hari ini -> gak usah fetch ulang, cukup render dari cache.
+            if (currentDayPrayerTimes.__date === todayKey) {
+                renderJadwalSholat(currentDayPrayerTimes);
+                return;
+            }
+
+            container.innerHTML = '<div class="loader"></div>';
+            if (dateEl) dateEl.innerText = 'Memuat jadwal...';
+
+            try {
+                const d = String(now.getDate()).padStart(2, '0');
+                const m = String(now.getMonth() + 1).padStart(2, '0');
+                const y = now.getFullYear();
+                // method=20 -> Kemenag RI (Kementerian Agama Republik Indonesia)
+                const url = `https://api.aladhan.com/v1/timingsByCity/${d}-${m}-${y}?city=Bekasi&country=Indonesia&method=20`;
+                const res = await fetch(url);
+                const json = await res.json();
+                const timings = json && json.data && json.data.timings;
+                if (!timings) throw new Error('Data jadwal tidak ditemukan');
+
+                currentDayPrayerTimes = {
+                    __date: todayKey,
+                    Imsak: timings.Imsak,
+                    Subuh: timings.Fajr,
+                    Terbit: timings.Sunrise,
+                    Dhuha: timings.Sunrise,
+                    Dzuhur: timings.Dhuhr,
+                    Ashar: timings.Asr,
+                    Maghrib: timings.Maghrib,
+                    Isya: timings.Isha,
+                };
+                notifiedPrayers = {};
+
+                if (dateEl) {
+                    dateEl.innerText = now.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+                }
+                renderJadwalSholat(currentDayPrayerTimes);
+            } catch (error) {
+                console.error('Gagal memuat jadwal sholat:', error);
+                if (dateEl) dateEl.innerText = 'Gagal memuat tanggal';
+                container.innerHTML = `
+                    <div class="bg-white rounded-2xl p-6 text-center text-sm font-bold text-gray-500 shadow-sm">
+                        Gagal memuat jadwal sholat. Coba segarkan lagi.
+                    </div>`;
+            }
+        }
+
+        function renderJadwalSholat(times) {
+            const container = document.getElementById('jadwal-container');
+            if (!container) return;
+
+            const order = ['Imsak', 'Subuh', 'Terbit', 'Dhuha', 'Dzuhur', 'Ashar', 'Maghrib', 'Isya'];
+            const icons = {
+                Imsak: 'fa-utensils', Subuh: 'fa-cloud-sun', Terbit: 'fa-sun', Dhuha: 'fa-sun',
+                Dzuhur: 'fa-sun', Ashar: 'fa-cloud-sun', Maghrib: 'fa-moon', Isya: 'fa-star-and-crescent',
+            };
+
+            container.innerHTML = order.map(name => `
+                <div class="bg-white rounded-2xl px-6 py-4 flex items-center justify-between shadow-[0_6px_20px_rgba(0,0,0,0.04)] border border-gray-100">
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
+                            <i class="fas ${icons[name] || 'fa-clock'}"></i>
+                        </div>
+                        <span class="font-bold text-gray-800">${name}</span>
+                    </div>
+                    <span class="font-black text-lg text-gray-900 tabular-nums">${times[name] || '--:--'}</span>
+                </div>
+            `).join('');
+        }
+
         async function renderYassaGallery(forceRefresh = false) {
             const gallery = document.getElementById('yassa-gallery');
             
@@ -769,10 +857,18 @@
             loadSurahList();
             loadJadwalSholat();
 
-            // 🔗 Dibuka dari YASSA Hub: Hub kirim tab awal lewat ?tab=quran/yasin/yassa/sholat
-            // (lihat MENUS.lentera di Hub), jadi app ini langsung nongol di tab yang
-            // diminta -- bukan selalu balik ke "Al-Quran" default.
+            // 🔗 Dibuka dari YASSA Hub: Hub kirim ?embed=1&tab=quran/yasin/yassa/sholat
+            // (lihat MENUS.lentera di Hub). embed=1 -> sembunyikan bottom-nav bawaan
+            // Lentera, karena Hub sudah punya menu grid sendiri buat pindah antar tab
+            // ini (Al-Quran/Yasin & Tahlil/Pejuang Yatim/Jadwal Sholat) -- kalau
+            // bottom-nav ini tetap tampil jadinya dobel dengan menu di Hub.
             const urlParams = new URLSearchParams(window.location.search);
+            isEmbedMode = urlParams.get('embed') === '1';
+            if (isEmbedMode) {
+                const bn = document.querySelector('.bottom-nav');
+                if (bn) bn.style.display = 'none';
+            }
+
             const initialTab = urlParams.get('tab');
             if (initialTab && document.getElementById(`tab-${initialTab}`)) {
                 switchTab(initialTab);
